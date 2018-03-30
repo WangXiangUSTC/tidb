@@ -600,7 +600,9 @@ func (c *twoPhaseCommitter) execute(ctx context.Context) error {
 	ctx = opentracing.ContextWithSpan(context.Background(), span)
 
 	binlogChan := c.prewriteBinlog()
+	startTime := time.Now()
 	err := c.prewriteKeys(NewBackoffer(ctx, prewriteMaxBackoff), c.keys)
+	endTime := time.Now()
 	if binlogChan != nil {
 		binlogErr := <-binlogChan
 		if binlogErr != nil {
@@ -611,6 +613,9 @@ func (c *twoPhaseCommitter) execute(ctx context.Context) error {
 		log.Debugf("[%d] 2PC failed on prewrite: %v, tid: %d", c.connID, err, c.startTS)
 		return errors.Trace(err)
 	}
+
+	metrics.TiKVwriteTikvLatency.WithLabelValues("WriteTikv").Observe(endTime.Sub(startTime).Seconds())
+	log.Warnf("writeTikv cost %v", endTime.Sub(startTime))
 
 	commitTS, err := c.store.getTimestampWithRetry(NewBackoffer(ctx, tsoMaxBackoff))
 	if err != nil {

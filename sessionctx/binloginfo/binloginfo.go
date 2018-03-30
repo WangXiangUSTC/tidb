@@ -27,9 +27,22 @@ import (
 	log "github.com/sirupsen/logrus"
 	"golang.org/x/net/context"
 	"google.golang.org/grpc"
+	"github.com/prometheus/client_golang/prometheus"
+)
+
+var(
+	writeBinlogToPumpLatency = prometheus.NewHistogramVec(
+	prometheus.HistogramOpts{
+	Namespace: "tidb",
+	Subsystem: "tikvclient",
+	Name:      "write_pump_lantency",
+	Help:      "Tidb write pump lantency",
+	Buckets:   prometheus.ExponentialBuckets(0.0005, 2, 13),
+	}, []string{"action"})
 )
 
 func init() {
+	prometheus.MustRegister(writeBinlogToPumpLatency)
 	grpc.EnableTracing = false
 }
 
@@ -82,11 +95,15 @@ func (info *BinlogInfo) WriteBinlog(clusterID uint64) error {
 	// Retry many times because we may raise CRITICAL error here.
 	for i := 0; i < 20; i++ {
 		var resp *binlog.WriteBinlogResp
+		beginTS := time.Now()
 		resp, err = info.Client.WriteBinlog(context.Background(), req)
+		endTime := time.Now()
 		if err == nil && resp.Errmsg != "" {
 			err = errors.New(resp.Errmsg)
 		}
 		if err == nil {
+			writeBinlogToPumpLatency.WithLabelValues("writePump").Observe(endTime.Sub(beginTS).Seconds())
+			log.Warnf("writePump cost %v", endTime.Sub(beginTS))
 			return nil
 		}
 		log.Errorf("write binlog error %v", err)

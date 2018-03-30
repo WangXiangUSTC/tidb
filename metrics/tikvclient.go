@@ -186,6 +186,15 @@ var (
 			Name:      "region_cache_operations_total",
 			Help:      "Counter of region cache.",
 		}, []string{LblType, LblResult})
+
+	TiKVwriteTikvLatency = prometheus.NewHistogramVec(
+		prometheus.HistogramOpts{
+		Namespace: "tidb",
+		Subsystem: "tikvclient",
+		Name:      "write_tikv_lantency",
+		Help:      "Tidb write tikv lantency",
+		Buckets:   prometheus.ExponentialBuckets(0.0005, 2, 13),
+	}, []string{"action"})
 )
 
 func init() {
@@ -208,4 +217,5 @@ func init() {
 	prometheus.MustRegister(TiKVLoadSafepointCounter)
 	prometheus.MustRegister(TiKVSecondaryLockCleanupFailureCounter)
 	prometheus.MustRegister(TiKVRegionCacheCounter)
+	prometheus.MustRegister(TiKVwriteTikvLatency)
 }
