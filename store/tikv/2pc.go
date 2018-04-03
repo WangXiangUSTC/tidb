@@ -599,8 +599,9 @@ func (c *twoPhaseCommitter) execute(ctx context.Context) error {
 	// to avoid the cancel signal from parent context.
 	ctx = opentracing.ContextWithSpan(context.Background(), span)
 
-	binlogChan := c.prewriteBinlog()
 	startTime := time.Now()
+	binlogChan := c.prewriteBinlog()
+	
 	err := c.prewriteKeys(NewBackoffer(ctx, prewriteMaxBackoff), c.keys)
 	endTime := time.Now()
 	if binlogChan != nil {

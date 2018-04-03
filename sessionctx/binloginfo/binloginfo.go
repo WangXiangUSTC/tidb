@@ -74,6 +74,12 @@ func SetPumpClient(client binlog.PumpClient) {
 
 // GetPrewriteValue gets binlog prewrite value in the context.
 func GetPrewriteValue(ctx sessionctx.Context, createIfNotExists bool) *binlog.PrewriteValue {
+	beginTS := time.Now()
+	defer func() {
+		endTime := time.Now()
+		log.Warnf("writePump_GetPrewriteValue cost %v", endTime.Sub(beginTS))
+	}()
+	
 	vars := ctx.GetSessionVars()
 	v, ok := vars.TxnCtx.Binlog.(*binlog.PrewriteValue)
 	if !ok && createIfNotExists {
