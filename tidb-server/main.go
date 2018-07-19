@@ -14,9 +14,10 @@
 package main
 
 import (
+	"context"
 	"flag"
 	"fmt"
-	"net"
+	//"net"
 	"os"
 	"os/signal"
 	"runtime"
@@ -43,16 +44,17 @@ import (
 	"github.com/pingcap/tidb/store/tikv"
 	"github.com/pingcap/tidb/store/tikv/gcworker"
 	"github.com/pingcap/tidb/terror"
-	"github.com/pingcap/tidb/util"
+	//"github.com/pingcap/tidb/util"
 	"github.com/pingcap/tidb/util/logutil"
 	"github.com/pingcap/tidb/util/printer"
 	"github.com/pingcap/tidb/util/systimemon"
 	"github.com/pingcap/tidb/x-server"
-	binlog "github.com/pingcap/tipb/go-binlog"
+	//binlog "github.com/pingcap/tipb/go-binlog"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/push"
 	log "github.com/sirupsen/logrus"
-	"google.golang.org/grpc"
+	//"google.golang.org/grpc"
+	pClient "github.com/pingcap/tidb-tools/pump_client"
 )
 
 // Flag Names
@@ -169,16 +171,17 @@ func setupBinlogClient() {
 	if cfg.Binlog.BinlogSocket == "" {
 		return
 	}
-	dialerOpt := grpc.WithDialer(func(addr string, timeout time.Duration) (net.Conn, error) {
-		return net.DialTimeout("unix", addr, timeout)
-	})
-	clientConn, err := session.DialPumpClientWithRetry(cfg.Binlog.BinlogSocket, util.DefaultMaxRetries, dialerOpt)
-	terror.MustNil(err)
+	//dialerOpt := grpc.WithDialer(func(addr string, timeout time.Duration) (net.Conn, error) {
+	//	return net.DialTimeout("unix", addr, timeout)
+	//})
+	//clientConn, err := session.DialPumpClientWithRetry(cfg.Binlog.BinlogSocket, util.DefaultMaxRetries, dialerOpt)
+	//terror.MustNil(err)
 	if cfg.Binlog.IgnoreError {
 		binloginfo.SetIgnoreError(true)
 	}
 	binloginfo.SetGRPCTimeout(parseDuration(cfg.Binlog.WriteTimeout))
-	binloginfo.SetPumpClient(binlog.NewPumpClient(clientConn))
+	client, _ := pClient.NewPumpsClient(context.Background(), 123, nil , nil, "hash")
+	binloginfo.SetPumpsClient(*client)
 	log.Infof("created binlog client at %s, ignore error %v", cfg.Binlog.BinlogSocket, cfg.Binlog.IgnoreError)
 }
 
