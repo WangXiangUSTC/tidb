@@ -20,9 +20,9 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/juju/errors"
+	//"github.com/juju/errors"
 	"github.com/pingcap/tidb/kv"
-	"github.com/pingcap/tidb/metrics"
+	//"github.com/pingcap/tidb/metrics"
 	"github.com/pingcap/tidb/sessionctx"
 	"github.com/pingcap/tidb/terror"
 	binlog "github.com/pingcap/tipb/go-binlog"
@@ -109,15 +109,20 @@ func SetIgnoreError(on bool) {
 
 // WriteBinlog writes a binlog to Pump.
 func (info *BinlogInfo) WriteBinlog(clusterID uint64) error {
+	/*
 	skip := atomic.LoadUint32(&skipBinlog)
 	if skip > 0 {
 		metrics.CriticalErrorCounter.Add(1)
 		return nil
 	}
+	*/
 
-	err := info.Client.WriteBinlog(info.Data)
-
+	log.Info("begin write binlog")
+	err := info.Client.WriteBinlog(clusterID, info.Data)
+	log.Info("end write binlog")
 	if err != nil {
+		return terror.ErrCritical.GenByArgs(err)
+		/*
 		if atomic.LoadUint32(&ignoreError) == 1 {
 			log.Errorf("critical error, write binlog fail but error ignored: %s", errors.ErrorStack(err))
 			metrics.CriticalErrorCounter.Add(1)
@@ -125,9 +130,10 @@ func (info *BinlogInfo) WriteBinlog(clusterID uint64) error {
 			atomic.CompareAndSwapUint32(&skipBinlog, skip, skip+1)
 			return nil
 		}
+		*/
 	}
 
-	return terror.ErrCritical.GenByArgs(err)
+	return nil
 }
 
 // SetDDLBinlog sets DDL binlog in the kv.Transaction.

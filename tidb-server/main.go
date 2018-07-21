@@ -14,7 +14,7 @@
 package main
 
 import (
-	"context"
+	//"context"
 	"flag"
 	"fmt"
 	//"net"
@@ -180,7 +180,11 @@ func setupBinlogClient() {
 		binloginfo.SetIgnoreError(true)
 	}
 	binloginfo.SetGRPCTimeout(parseDuration(cfg.Binlog.WriteTimeout))
-	client, _ := pClient.NewPumpsClient(context.Background(), 123, nil , nil, "hash")
+	client, err := pClient.NewPumpsClient(cfg.Path, nil, "hash")
+	if err != nil {
+		log.Errorf("create pumps client error %v", err)
+		return
+	}
 	binloginfo.SetPumpsClient(*client)
 	log.Infof("created binlog client at %s, ignore error %v", cfg.Binlog.BinlogSocket, cfg.Binlog.IgnoreError)
 }

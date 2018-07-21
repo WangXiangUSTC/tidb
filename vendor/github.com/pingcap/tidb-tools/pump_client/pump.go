@@ -42,8 +42,8 @@ const (
 	// Offline means the pump is offline, and will not provide service.
 	Offline PumpState = "offline"
 
-	// RootPath is the root path of the keys stored in etcd for binlog.
-	RootPath = "/tidb-binlog"
+	// RootPath is the root path of the keys stored in etcd for pumps.
+	RootPath = "/tidb-binlog/pumps"
 )
 
 // PumpStatus saves pump's status
@@ -78,6 +78,7 @@ type LatestPos struct {
 }
 
 // NodeStatus describes the status information of a node in etcd
+// TODO: adjust this struct with PumpStatus.
 type NodeStatus struct {
 	NodeID         string
 	Host           string
