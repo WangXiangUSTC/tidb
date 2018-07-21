@@ -16,6 +16,7 @@ package client
 import (
 	"sync"
 
+	"github.com/ngaut/log"
 	pb "github.com/pingcap/tipb/go-binlog"
 )
 
@@ -37,9 +38,6 @@ type PumpSelector interface {
 
 	// returns the next pump.
 	Next(*PumpStatus, *pb.Binlog, int) *PumpStatus
-
-	// DeleteTsMap removes the map information of ts.
-	DeleteTsMap(ts int64)
 }
 
 // HashSelector select a pump by hash.
@@ -70,6 +68,7 @@ func NewHashSelector() PumpSelector {
 func (h *HashSelector) SetPumps(pumps []*PumpStatus) {
 	h.Lock()
 	h.Pumps = pumps
+	h.PumpMap = make(map[string]*PumpStatus)
 	for _, pump := range pumps {
 		h.PumpMap[pump.NodeID] = pump
 	}
@@ -78,24 +77,25 @@ func (h *HashSelector) SetPumps(pumps []*PumpStatus) {
 
 // Select implement PumpSelector.Select.
 func (h *HashSelector) Select(binlog *pb.Binlog) *PumpStatus {
+	h.Lock()
+	defer h.Unlock()
+
 	if len(h.Pumps) == 0 {
 		return nil
 	}
+	log.Infof("can select pumps %v", h.Pumps)
 
 	if binlog.Tp == pb.BinlogType_Prewrite {
 		pump := h.Pumps[int(binlog.StartTs)%len(h.Pumps)]
-		h.Lock()
 		h.TsMap[binlog.StartTs] = pump
-		h.Unlock()
 		return h.Pumps[int(binlog.StartTs)%len(h.Pumps)]
 	}
 
-	h.RLock()
-	pump, ok := h.TsMap[binlog.StartTs]
-	h.RUnlock()
-	if ok {
-		h.DeleteTsMap(binlog.StartTs)
-		return pump
+	if pump, ok := h.TsMap[binlog.StartTs]; ok {
+		if _, ok = h.PumpMap[pump.NodeID]; ok {
+			h.deleteTsMap(binlog.StartTs)
+			return pump
+		}
 	}
 
 	return h.Pumps[int(binlog.StartTs)%len(h.Pumps)]
@@ -103,6 +103,10 @@ func (h *HashSelector) Select(binlog *pb.Binlog) *PumpStatus {
 
 // Next implement PumpSelector.Next.
 func (h *HashSelector) Next(pump *PumpStatus, binlog *pb.Binlog, retryTime int) *PumpStatus {
+	if len(h.Pumps) == 0 {
+		return nil
+	}
+	
 	nextPump := h.Pumps[(int(binlog.StartTs)+int(retryTime))%len(h.Pumps)]
 	h.Lock()
 	h.TsMap[binlog.StartTs] = pump
@@ -111,11 +115,10 @@ func (h *HashSelector) Next(pump *PumpStatus, binlog *pb.Binlog, retryTime int) 
 	return nextPump
 }
 
-// DeleteTsMap implement PumpSelector.DeleteTsMap.
-func (h *HashSelector) DeleteTsMap(ts int64) {
-	h.Lock()
-	delete(h.TsMap, ts)
-	h.Unlock()
+func (h *HashSelector) deleteTsMap(ts int64) {
+	if _, ok := h.TsMap[ts]; ok {
+		delete(h.TsMap, ts)
+	}
 }
 
 // ScoreSelector select a pump by pump's score.
@@ -142,6 +145,3 @@ func (s *ScoreSelector) Next(pump *PumpStatus, binlog *pb.Binlog, retryTime int)
 	// TODO
 	return nil
 }
-
-// DeleteTsMap implement PumpSelector.DeleteTsMap.
-func (s *ScoreSelector) DeleteTsMap(ts int64) {}

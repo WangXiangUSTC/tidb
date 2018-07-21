@@ -14,6 +14,7 @@
 package client
 
 import (
+	//"errors"
 	"context"
 	"crypto/tls"
 	"net"
@@ -21,6 +22,7 @@ import (
 	"strings"
 	"sync"
 	"time"
+	"fmt"
 
 	//"github.com/pingcap/pd/pd-client"
 	"github.com/juju/errors"
@@ -152,7 +154,8 @@ func (c *PumpsClient) GetPumpStatus(pctx context.Context) error {
 			})
 			log.Infof("create gcpc client at %s", status.Host)
 			//clientConn, err := grpc.Dial(status.Host, dialerOpt, grpc.WithInsecure())
-			clientConn, err := grpc.Dial("10.203.13.41:8250", dialerOpt, grpc.WithInsecure())
+			port := strings.Split(status.Host, ":")[1]
+			clientConn, err := grpc.Dial(fmt.Sprintf("192.168.31.246:%s", port), dialerOpt, grpc.WithInsecure())
 			if err != nil {
 				return errors.Errorf("create grpc client for %s failed, error %v", status.NodeID, err)
 			}
@@ -205,12 +208,14 @@ func (c *PumpsClient) WriteBinlog(clusterID uint64, binlog *pb.Binlog) error {
 		// every pump can retry 5 times, if retry 5 times and still failed, set this pump unavaliable, and choose a new pump.
 		if (i+1)%5 == 0 {
 			c.SetPumpAvaliable(pump, false)
+			log.Infof("avaliable pumps: %v", c.AvaliablePumps)
 			pump = c.Selector.Next(pump, binlog, i/5+1)
+			log.Infof("write binlog choose pump %v", pump)
 		}
 		time.Sleep(time.Second)
 	}
 
-	return nil
+	return errors.New("write binlog failed!")
 }
 
 // SetPumpAvaliable set pump's isAvaliable, and modify NeedCheckPumps or AvaliablePumps.
@@ -226,6 +231,7 @@ func (c *PumpsClient) SetPumpAvaliable(pump *PumpStatus, avaliable bool) {
 				break
 			}
 		}
+		c.AvaliablePumps = append(c.AvaliablePumps, pump)
 	} else {
 		for j, p := range c.AvaliablePumps {
 			if p.NodeID == pump.NodeID {
@@ -233,7 +239,10 @@ func (c *PumpsClient) SetPumpAvaliable(pump *PumpStatus, avaliable bool) {
 				break
 			}
 		}
+		c.NeedCheckPumps = append(c.NeedCheckPumps, pump)
 	}
+
+	c.Selector.SetPumps(c.AvaliablePumps)
 }
 
 // WatchStatus watchs pump's status in etcd.

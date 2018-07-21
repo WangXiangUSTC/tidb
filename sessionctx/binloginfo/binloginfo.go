@@ -20,7 +20,7 @@ import (
 	"sync/atomic"
 	"time"
 
-	//"github.com/juju/errors"
+	"github.com/juju/errors"
 	"github.com/pingcap/tidb/kv"
 	//"github.com/pingcap/tidb/metrics"
 	"github.com/pingcap/tidb/sessionctx"
@@ -117,11 +117,11 @@ func (info *BinlogInfo) WriteBinlog(clusterID uint64) error {
 	}
 	*/
 
-	log.Info("begin write binlog")
+	log.Infof("begin write binlog, start ts: %d, type: %s", info.Data.StartTs, info.Data.Tp)
 	err := info.Client.WriteBinlog(clusterID, info.Data)
-	log.Info("end write binlog")
+	log.Infof("end write binlog, start ts: %d, type: %s", info.Data.StartTs, info.Data.Tp)
 	if err != nil {
-		return terror.ErrCritical.GenByArgs(err)
+		log.Errorf("write binlog fail %v", errors.ErrorStack(err))
 		/*
 		if atomic.LoadUint32(&ignoreError) == 1 {
 			log.Errorf("critical error, write binlog fail but error ignored: %s", errors.ErrorStack(err))
