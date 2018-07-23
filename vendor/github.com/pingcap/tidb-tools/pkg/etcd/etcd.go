@@ -205,6 +205,10 @@ func (e *Client) Delete(ctx context.Context, key string, withPrefix bool) error 
 	return nil
 }
 
+func (e *Client) Watch(ctx context.Context, prefix string) clientv3.WatchChan {
+	return e.client.Watch(ctx, prefix, clientv3.WithPrefix())
+}
+
 func parseToDirTree(root *Node, path string) *Node {
 	pathDirs := strings.Split(path, "/")
 	current := root
