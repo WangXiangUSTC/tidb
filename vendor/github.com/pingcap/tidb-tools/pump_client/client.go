@@ -24,7 +24,6 @@ import (
 	"time"
 	"fmt"
 
-	//"github.com/pingcap/pd/pd-client"
 	"github.com/juju/errors"
 	"github.com/ngaut/log"
 	"github.com/pingcap/tidb-tools/pkg/etcd"
@@ -175,9 +174,7 @@ func (c *PumpsClient) GetPumpStatus(pctx context.Context) error {
 
 // WriteBinlog writes binlog to a situable pump.
 func (c *PumpsClient) WriteBinlog(clusterID uint64, binlog *pb.Binlog) error {
-	c.RLock()
 	pump := c.Selector.Select(binlog)
-	c.RUnlock()
 	log.Infof("write binlog choose pump %v", pump)
 
 	commitData, err := binlog.Marshal()
@@ -202,12 +199,11 @@ func (c *PumpsClient) WriteBinlog(clusterID uint64, binlog *pb.Binlog) error {
 		if err == nil {
 			return nil
 		}
-		if strings.Contains(err.Error(), "received message larger than max") {
-			// This kind of error is not critical and not retryable, return directly.
-			return errors.Errorf("binlog data is too large (%s)", err.Error())
-		}
 
 		log.Errorf("write binlog error %v", err)
+		if isCriticalError(err error) {
+			return err
+		}
 
 		// every pump can retry 5 times, if retry 5 times and still failed, set this pump unavaliable, and choose a new pump.
 		if (i+1)%5 == 0 {
@@ -296,4 +292,9 @@ func (c *PumpsClient) Close() {
 	c.cancel()
 	c.wg.Wait()
 	log.Infof("pumps client is closed")
+}
+
+func isCriticalError(err error) bool {
+	// TODO: add some critical error.
+	return false
 }
