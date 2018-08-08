@@ -28,6 +28,7 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/opentracing/opentracing-go"
+	"github.com/pingcap/pd/pd-client"
 	"github.com/pingcap/tidb/config"
 	"github.com/pingcap/tidb/ddl"
 	"github.com/pingcap/tidb/domain"
@@ -54,7 +55,7 @@ import (
 	"github.com/prometheus/client_golang/prometheus/push"
 	log "github.com/sirupsen/logrus"
 	//"google.golang.org/grpc"
-	pClient "github.com/pingcap/tidb-tools/pump_client"
+	pClient "github.com/pingcap/tidb-tools/tidb-binlog/pump_client"
 )
 
 // Flag Names
@@ -67,7 +68,8 @@ const (
 	nmAdvertiseAddress = "advertise-address"
 	nmPort             = "P"
 	nmSocket           = "socket"
-	nmBinlogSocket     = "binlog-socket"
+	//nmBinlogSocket     = "binlog-socket"
+	nmBinlogStrategy   = "binlog-strategy"
 	nmRunDDL           = "run-ddl"
 	nmLogLevel         = "L"
 	nmLogFile          = "log-file"
@@ -94,7 +96,8 @@ var (
 	advertiseAddress = flag.String(nmAdvertiseAddress, "", "tidb server advertise IP")
 	port             = flag.String(nmPort, "4000", "tidb server port")
 	socket           = flag.String(nmSocket, "", "The socket file to use for connection.")
-	binlogSocket     = flag.String(nmBinlogSocket, "", "socket file to write binlog")
+	//binlogSocket     = flag.String(nmBinlogSocket, "", "socket file to write binlog")
+	binlogStrategy   = flag.String(nmBinlogStrategy, "", "the strategy for sending binlog to pump")
 	runDDL           = flagBoolean(nmRunDDL, true, "run ddl worker on this tidb-server")
 	ddlLease         = flag.String(nmDdlLease, "45s", "schema lease duration, very dangerous to change only if you know what you do")
 	tokenLimit       = flag.Int(nmTokenLimit, 1000, "the limit of concurrent executed sessions")
@@ -168,9 +171,10 @@ func createStoreAndDomain() {
 }
 
 func setupBinlogClient() {
-	if cfg.Binlog.BinlogSocket == "" {
+	if cfg.Binlog.Strategy == "" {
 		return
 	}
+
 	//dialerOpt := grpc.WithDialer(func(addr string, timeout time.Duration) (net.Conn, error) {
 	//	return net.DialTimeout("unix", addr, timeout)
 	//})
@@ -179,14 +183,31 @@ func setupBinlogClient() {
 	if cfg.Binlog.IgnoreError {
 		binloginfo.SetIgnoreError(true)
 	}
+
+	client, err := pClient.NewPumpsClient(cfg.Path, cfg.Binlog.Strategy, pd.SecurityOption{
+		CAPath:   cfg.Security.ClusterSSLCA,
+		CertPath: cfg.Security.ClusterSSLCert,
+		KeyPath:  cfg.Security.ClusterSSLKey,
+	})
+	terror.MustNil(err)
+
 	binloginfo.SetGRPCTimeout(parseDuration(cfg.Binlog.WriteTimeout))
-	client, err := pClient.NewPumpsClient(cfg.Path, nil, "hash")
+	binloginfo.SetPumpsClient(*client)
+
+	/*
+	tlsConfig, err := config.GetGlobalConfig().Security.ToTLSConfig()
+	if err != nil {
+		log.Infof("error happen when setting binlog client: %s", errors.ErrorStack(err))
+	}
+
+	binloginfo.SetGRPCTimeout(parseDuration(cfg.Binlog.WriteTimeout))
+	client, err := pClient.NewPumpsClient(cfg.Path, tlsConfig, cfg.Binlog.Strategy)
 	if err != nil {
 		log.Errorf("create pumps client error %v", err)
 		return
 	}
-	binloginfo.SetPumpsClient(*client)
-	log.Infof("created binlog client at %s, ignore error %v", cfg.Binlog.BinlogSocket, cfg.Binlog.IgnoreError)
+	*/
+	log.Infof("created pumps client with strategy %s, ignore error %v", cfg.Binlog.Strategy, cfg.Binlog.IgnoreError)
 }
 
 // Prometheus push.
@@ -290,8 +311,8 @@ func overrideConfig() {
 	if actualFlags[nmSocket] {
 		cfg.Socket = *socket
 	}
-	if actualFlags[nmBinlogSocket] {
-		cfg.Binlog.BinlogSocket = *binlogSocket
+	if actualFlags[nmBinlogStrategy] {
+		cfg.Binlog.Strategy = *binlogStrategy
 	}
 	if actualFlags[nmRunDDL] {
 		cfg.RunDDL = *runDDL

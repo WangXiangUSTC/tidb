@@ -58,7 +58,7 @@ import (
 	binlog "github.com/pingcap/tipb/go-binlog"
 	log "github.com/sirupsen/logrus"
 	"golang.org/x/net/context"
-	pClient "github.com/pingcap/tidb-tools/pump_client"
+	pClient "github.com/pingcap/tidb-tools/tidb-binlog/pump_client"
 )
 
 // Session context

@@ -29,7 +29,7 @@ import (
 	log "github.com/sirupsen/logrus"
 	//"golang.org/x/net/context"
 	"google.golang.org/grpc"
-	pClient "github.com/pingcap/tidb-tools/pump_client"
+	pClient "github.com/pingcap/tidb-tools/tidb-binlog/pump_client"
 )
 
 func init() {
@@ -118,7 +118,7 @@ func (info *BinlogInfo) WriteBinlog(clusterID uint64) error {
 	*/
 
 	log.Infof("begin write binlog, start ts: %d, type: %s", info.Data.StartTs, info.Data.Tp)
-	err := info.Client.WriteBinlog(clusterID, info.Data)
+	err := info.Client.WriteBinlog(info.Data)
 	log.Infof("end write binlog, start ts: %d, type: %s", info.Data.StartTs, info.Data.Tp)
 	if err != nil {
 		log.Errorf("write binlog fail %v", errors.ErrorStack(err))
