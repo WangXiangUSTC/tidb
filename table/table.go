@@ -39,6 +39,15 @@ const (
 	MemoryTable
 )
 
+const (
+	// DirtyTableAddRow is the constant for dirty table operation type.
+	DirtyTableAddRow = iota
+	// DirtyTableDeleteRow is the constant for dirty table operation type.
+	DirtyTableDeleteRow
+	// DirtyTableTruncate is the constant for dirty table operation type.
+	DirtyTableTruncate
+)
+
 var (
 	// ErrColumnCantNull is used for inserting null to a not null column.
 	ErrColumnCantNull  = terror.ClassTable.New(codeColumnCantNull, mysql.MySQLErrName[mysql.ErrBadNull])
@@ -137,6 +146,11 @@ type Table interface {
 
 	// Meta returns TableInfo.
 	Meta() *model.TableInfo
+
+	// GetID returns the ID of the table.
+	// If it is not a partition, the ID would be the tableID.
+	// If it is a partition, the ID would be the partitionID.
+	GetID() int64
 
 	// Seek returns the handle greater or equal to h.
 	Seek(ctx sessionctx.Context, h int64) (handle int64, found bool, err error)

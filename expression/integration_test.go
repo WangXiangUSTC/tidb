@@ -763,6 +763,10 @@ func (s *testIntegrationSuite) TestStringBuiltin(c *C) {
 	result.Check(testutil.RowsWithSep(",", "bar   ,bar,,<nil>"))
 	result = tk.MustQuery(`select rtrim('   bar   '), rtrim('bar'), rtrim(''), rtrim(null)`)
 	result.Check(testutil.RowsWithSep(",", "   bar,bar,,<nil>"))
+	result = tk.MustQuery(`select ltrim("\t   bar   "), ltrim("   \tbar"), ltrim("\n  bar"), ltrim("\r  bar")`)
+	result.Check(testutil.RowsWithSep(",", "\t   bar   ,\tbar,\n  bar,\r  bar"))
+	result = tk.MustQuery(`select rtrim("   bar   \t"), rtrim("bar\t   "), rtrim("bar   \n"), rtrim("bar   \r")`)
+	result.Check(testutil.RowsWithSep(",", "   bar   \t,bar\t,bar   \n,bar   \r"))
 
 	// for reverse
 	tk.MustExec(`DROP TABLE IF EXISTS t;`)
@@ -776,6 +780,8 @@ func (s *testIntegrationSuite) TestStringBuiltin(c *C) {
 	// for trim
 	result = tk.MustQuery(`select trim('   bar   '), trim(leading 'x' from 'xxxbarxxx'), trim(trailing 'xyz' from 'barxxyz'), trim(both 'x' from 'xxxbarxxx')`)
 	result.Check(testkit.Rows("bar barxxx barx bar"))
+	result = tk.MustQuery(`select trim('\t   bar\n   '), trim('   \rbar   \t')`)
+	result.Check(testutil.RowsWithSep(",", "\t   bar\n,\rbar   \t"))
 	result = tk.MustQuery(`select trim(leading from '   bar'), trim('x' from 'xxxbarxxx'), trim('x' from 'bar'), trim('' from '   bar   ')`)
 	result.Check(testutil.RowsWithSep(",", "bar,bar,bar,   bar   "))
 	result = tk.MustQuery(`select trim(''), trim('x' from '')`)
@@ -2856,6 +2862,20 @@ func (s *testIntegrationSuite) TestAggregationBuiltinBitAnd(c *C) {
 	result.Check(testkit.Rows("7 7", "5 5", "3 3", "2 2", "<nil> 18446744073709551615"))
 }
 
+func (s *testIntegrationSuite) TestAggregationBuiltinGroupConcat(c *C) {
+	defer s.cleanEnv(c)
+	tk := testkit.NewTestKit(c, s.store)
+	tk.MustExec("use test")
+	tk.MustExec("create table t(a varchar(100))")
+	tk.MustExec("insert into t values('hello'), ('hello')")
+	result := tk.MustQuery("select group_concat(a) from t")
+	result.Check(testkit.Rows("hello,hello"))
+
+	tk.MustExec("set @@group_concat_max_len=7")
+	result = tk.MustQuery("select group_concat(a) from t")
+	result.Check(testkit.Rows("hello,h"))
+}
+
 func (s *testIntegrationSuite) TestOtherBuiltin(c *C) {
 	defer s.cleanEnv(c)
 	tk := testkit.NewTestKit(c, s.store)
@@ -3400,4 +3420,43 @@ func (s *testIntegrationSuite) TestTwoDecimalTruncate(c *C) {
 	res.Check(testkit.Rows("123.12345 123.1"))
 	res = tk.MustQuery("select 2.00000000000000000000000000000001 * 1.000000000000000000000000000000000000000000002")
 	res.Check(testkit.Rows("2.000000000000000000000000000000"))
+}
+
+func (s *testIntegrationSuite) TestPrefixIndex(c *C) {
+	tk := testkit.NewTestKit(c, s.store)
+	defer s.cleanEnv(c)
+	tk.MustExec("use test")
+	tk.MustExec(`CREATE TABLE t1 (
+  			name varchar(12) DEFAULT NULL,
+  			KEY pname (name(12))
+		) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci`)
+
+	tk.MustExec("insert into t1 values('借款策略集_网页');")
+	res := tk.MustQuery("select * from t1 where name = '借款策略集_网页';")
+	res.Check(testkit.Rows("借款策略集_网页"))
+
+	tk.MustExec(`CREATE TABLE prefix (
+		a int(11) NOT NULL,
+		b varchar(55) DEFAULT NULL,
+		c int(11) DEFAULT NULL,
+		PRIMARY KEY (a),
+		KEY prefix_index (b(2)),
+		KEY prefix_complex (a,b(2))
+	) ENGINE=InnoDB DEFAULT CHARSET=utf8 COLLATE=utf8_bin;`)
+
+	tk.MustExec("INSERT INTO prefix VALUES(0, 'b', 2), (1, 'bbb', 3), (2, 'bbc', 4), (3, 'bbb', 5), (4, 'abc', 6), (5, 'abc', 7), (6, 'abc', 7), (7, 'ÿÿ', 8), (8, 'ÿÿ0', 9), (9, 'ÿÿÿ', 10);")
+	res = tk.MustQuery("select c, b from prefix where b > 'ÿ' and b < 'ÿÿc'")
+	res.Check(testkit.Rows("8 ÿÿ", "9 ÿÿ0"))
+
+	res = tk.MustQuery("select a, b from prefix where b LIKE 'ÿÿ%'")
+	res.Check(testkit.Rows("7 ÿÿ", "8 ÿÿ0", "9 ÿÿÿ"))
+}
+
+func (s *testIntegrationSuite) TestDecimalMul(c *C) {
+	tk := testkit.NewTestKit(c, s.store)
+	tk.MustExec("USE test")
+	tk.MustExec("create table t(a decimal(38, 17));")
+	tk.MustExec("insert into t select 0.5999991229316*0.918755041726043;")
+	res := tk.MustQuery("select * from t;")
+	res.Check(testkit.Rows("0.55125221922461136"))
 }
