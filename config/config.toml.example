@@ -233,8 +233,8 @@ capacity = 10240000
 
 [binlog]
 
-# Socket file to write binlog.
-binlog-socket = ""
+# the strategy that choose pump to write binlog.
+binlog-strategy = "hash"
 
 # WriteTimeout specifies how long it will wait for writing binlog to pump.
 write-timeout = "15s"

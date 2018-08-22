@@ -68,7 +68,6 @@ const (
 	nmAdvertiseAddress = "advertise-address"
 	nmPort             = "P"
 	nmSocket           = "socket"
-	//nmBinlogSocket     = "binlog-socket"
 	nmBinlogStrategy   = "binlog-strategy"
 	nmRunDDL           = "run-ddl"
 	nmLogLevel         = "L"
@@ -175,11 +174,6 @@ func setupBinlogClient() {
 		return
 	}
 
-	//dialerOpt := grpc.WithDialer(func(addr string, timeout time.Duration) (net.Conn, error) {
-	//	return net.DialTimeout("unix", addr, timeout)
-	//})
-	//clientConn, err := session.DialPumpClientWithRetry(cfg.Binlog.BinlogSocket, util.DefaultMaxRetries, dialerOpt)
-	//terror.MustNil(err)
 	if cfg.Binlog.IgnoreError {
 		binloginfo.SetIgnoreError(true)
 	}
@@ -193,20 +187,6 @@ func setupBinlogClient() {
 
 	binloginfo.SetGRPCTimeout(parseDuration(cfg.Binlog.WriteTimeout))
 	binloginfo.SetPumpsClient(*client)
-
-	/*
-	tlsConfig, err := config.GetGlobalConfig().Security.ToTLSConfig()
-	if err != nil {
-		log.Infof("error happen when setting binlog client: %s", errors.ErrorStack(err))
-	}
-
-	binloginfo.SetGRPCTimeout(parseDuration(cfg.Binlog.WriteTimeout))
-	client, err := pClient.NewPumpsClient(cfg.Path, tlsConfig, cfg.Binlog.Strategy)
-	if err != nil {
-		log.Errorf("create pumps client error %v", err)
-		return
-	}
-	*/
 	log.Infof("created pumps client with strategy %s, ignore error %v", cfg.Binlog.Strategy, cfg.Binlog.IgnoreError)
 }
 

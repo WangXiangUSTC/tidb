@@ -22,14 +22,14 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/pingcap/tidb/kv"
-	//"github.com/pingcap/tidb/metrics"
+	"github.com/pingcap/tidb/metrics"
 	"github.com/pingcap/tidb/sessionctx"
 	"github.com/pingcap/tidb/terror"
 	binlog "github.com/pingcap/tipb/go-binlog"
 	log "github.com/sirupsen/logrus"
 	//"golang.org/x/net/context"
-	"google.golang.org/grpc"
 	pClient "github.com/pingcap/tidb-tools/tidb-binlog/pump_client"
+	"google.golang.org/grpc"
 )
 
 func init() {
@@ -47,7 +47,7 @@ var pumpsClientLock sync.RWMutex
 
 // BinlogInfo contains binlog data and binlog client.
 type BinlogInfo struct {
-	Data   *binlog.Binlog
+	Data *binlog.Binlog
 	//Client binlog.PumpClient
 	Client pClient.PumpsClient
 }
@@ -109,20 +109,17 @@ func SetIgnoreError(on bool) {
 
 // WriteBinlog writes a binlog to Pump.
 func (info *BinlogInfo) WriteBinlog(clusterID uint64) error {
-	/*
 	skip := atomic.LoadUint32(&skipBinlog)
 	if skip > 0 {
 		metrics.CriticalErrorCounter.Add(1)
 		return nil
 	}
-	*/
 
-	log.Infof("begin write binlog, start ts: %d, type: %s", info.Data.StartTs, info.Data.Tp)
+	log.Debugf("begin write binlog, start ts: %d, type: %s", info.Data.StartTs, info.Data.Tp)
 	err := info.Client.WriteBinlog(info.Data)
-	log.Infof("end write binlog, start ts: %d, type: %s", info.Data.StartTs, info.Data.Tp)
+	log.Debugf("end write binlog, start ts: %d, type: %s", info.Data.StartTs, info.Data.Tp)
 	if err != nil {
 		log.Errorf("write binlog fail %v", errors.ErrorStack(err))
-		/*
 		if atomic.LoadUint32(&ignoreError) == 1 {
 			log.Errorf("critical error, write binlog fail but error ignored: %s", errors.ErrorStack(err))
 			metrics.CriticalErrorCounter.Add(1)
@@ -130,7 +127,8 @@ func (info *BinlogInfo) WriteBinlog(clusterID uint64) error {
 			atomic.CompareAndSwapUint32(&skipBinlog, skip, skip+1)
 			return nil
 		}
-		*/
+
+		return terror.ErrCritical.GenByArgs(err)
 	}
 
 	return nil
