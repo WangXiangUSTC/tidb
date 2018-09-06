@@ -178,7 +178,7 @@ func setupBinlogClient() {
 		binloginfo.SetIgnoreError(true)
 	}
 
-	client, err := pClient.NewPumpsClient(cfg.Path, cfg.Binlog.Strategy, pd.SecurityOption{
+	client, err := pClient.NewPumpsClient(cfg.Path, pd.SecurityOption{
 		CAPath:   cfg.Security.ClusterSSLCA,
 		CertPath: cfg.Security.ClusterSSLCert,
 		KeyPath:  cfg.Security.ClusterSSLKey,
