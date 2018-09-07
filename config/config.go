@@ -236,7 +236,8 @@ type TiKVClient struct {
 
 // Binlog is the config for binlog.
 type Binlog struct {
-	Strategy string `toml:"binlog-strategy" json:"binlog-strategy"`
+	//Strategy string `toml:"binlog-strategy" json:"binlog-strategy"`
+	Strategy string `toml:"binlog-socket" json:"binlog-socket"`
 	WriteTimeout string `toml:"write-timeout" json:"write-timeout"`
 	// If IgnoreError is true, when writting binlog meets error, TiDB would
 	// ignore the error.

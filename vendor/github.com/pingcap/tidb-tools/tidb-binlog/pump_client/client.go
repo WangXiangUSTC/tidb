@@ -105,6 +105,9 @@ func NewPumpsClient(etcdURLs string, securityOpt pd.SecurityOption) (*PumpsClien
 	// TODO: get strategy from etcd, and can update strategy in real-time. now use Range as default.
 	strategy := Range
 	selector := NewSelector(strategy)
+	if selector == nil {
+		return nil, errors.New("pump client's selector is nil")
+	}
 
 	ectdEndpoints, err := utils.ParseHostPortAddr(etcdURLs)
 	if err != nil {
