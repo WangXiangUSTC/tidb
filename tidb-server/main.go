@@ -68,7 +68,8 @@ const (
 	nmAdvertiseAddress = "advertise-address"
 	nmPort             = "P"
 	nmSocket           = "socket"
-	nmBinlogStrategy   = "binlog-strategy"
+	//nmBinlogStrategy   = "binlog-strategy"
+	nmBinlogStrategy   = "binlog-socket"
 	nmRunDDL           = "run-ddl"
 	nmLogLevel         = "L"
 	nmLogFile          = "log-file"
@@ -184,6 +185,9 @@ func setupBinlogClient() {
 		KeyPath:  cfg.Security.ClusterSSLKey,
 	})
 	terror.MustNil(err)
+	if err != nil {
+		log.Errorf("create pumps client error %v", err)
+	}
 
 	binloginfo.SetGRPCTimeout(parseDuration(cfg.Binlog.WriteTimeout))
 	binloginfo.SetPumpsClient(*client)
