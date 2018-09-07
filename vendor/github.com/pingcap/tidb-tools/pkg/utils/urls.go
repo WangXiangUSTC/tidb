@@ -29,6 +29,15 @@ func ParseHostPortAddr(s string) ([]string, error) {
 	for _, str := range strs {
 		str = strings.TrimSpace(str)
 
+		if !strings.Contains(str, "http") && !strings.Contains(str, "unix") {
+			if _, _, err := net.SplitHostPort(str); err != nil {
+				return nil, errors.Errorf(`URL address does not have the form "host:port": %s`, str)
+			}
+
+			addrs = append(addrs, str)
+			continue
+		}
+
 		u, err := url.Parse(str)
 		if err != nil {
 			// str may looks like 127.0.0.1:8000
