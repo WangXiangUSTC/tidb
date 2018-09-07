@@ -171,9 +171,9 @@ func createStoreAndDomain() {
 }
 
 func setupBinlogClient() {
-	//if cfg.Binlog.Strategy == "" {
-	//	return
-	//}
+	if cfg.Binlog.Strategy == "" {
+		return
+	}
 
 	if cfg.Binlog.IgnoreError {
 		binloginfo.SetIgnoreError(true)
