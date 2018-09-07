@@ -179,18 +179,20 @@ func setupBinlogClient() {
 		binloginfo.SetIgnoreError(true)
 	}
 
+	log.Infof("set pumps client")
 	client, err := pClient.NewPumpsClient(cfg.Path, pd.SecurityOption{
 		CAPath:   cfg.Security.ClusterSSLCA,
 		CertPath: cfg.Security.ClusterSSLCert,
 		KeyPath:  cfg.Security.ClusterSSLKey,
 	})
-	terror.MustNil(err)
+	//terror.MustNil(err)
 	if err != nil {
 		log.Errorf("create pumps client error %v", err)
+		return
 	}
 
 	binloginfo.SetGRPCTimeout(parseDuration(cfg.Binlog.WriteTimeout))
-	binloginfo.SetPumpsClient(*client)
+	binloginfo.SetPumpsClient(client)
 	log.Infof("created pumps client with strategy %s, ignore error %v", cfg.Binlog.Strategy, cfg.Binlog.IgnoreError)
 }
 

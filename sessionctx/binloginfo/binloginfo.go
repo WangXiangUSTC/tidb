@@ -42,18 +42,18 @@ var binlogWriteTimeout = 15 * time.Second
 // shared by all sessions.
 //var pumpClient binlog.PumpClient
 //var pumpClientLock sync.RWMutex
-var pumpsClient pClient.PumpsClient
+var pumpsClient *pClient.PumpsClient
 var pumpsClientLock sync.RWMutex
 
 // BinlogInfo contains binlog data and binlog client.
 type BinlogInfo struct {
 	Data *binlog.Binlog
 	//Client binlog.PumpClient
-	Client pClient.PumpsClient
+	Client *pClient.PumpsClient
 }
 
 // GetPumpsClient gets the pump client instance.
-func GetPumpsClient() pClient.PumpsClient {
+func GetPumpsClient() *pClient.PumpsClient {
 	pumpsClientLock.RLock()
 	client := pumpsClient
 	pumpsClientLock.RUnlock()
@@ -61,7 +61,7 @@ func GetPumpsClient() pClient.PumpsClient {
 }
 
 // SetPumpsClient sets the PumpsClient instance.
-func SetPumpsClient(client pClient.PumpsClient) {
+func SetPumpsClient(client *pClient.PumpsClient) {
 	pumpsClientLock.Lock()
 	pumpsClient = client
 	pumpsClientLock.Unlock()
@@ -115,6 +115,11 @@ func (info *BinlogInfo) WriteBinlog(clusterID uint64) error {
 		return nil
 	}
 
+	if info.Client == nil {
+		log.Error("pump client is nil")
+		return errors.New("pump client is nil")
+	}
+
 	log.Debugf("begin write binlog, start ts: %d, type: %s", info.Data.StartTs, info.Data.Tp)
 	err := info.Client.WriteBinlog(info.Data)
 	log.Debugf("end write binlog, start ts: %d, type: %s", info.Data.StartTs, info.Data.Tp)
@@ -146,7 +151,7 @@ func SetDDLBinlog(client interface{}, txn kv.Transaction, jobID int64, ddlQuery 
 			DdlJobId: jobID,
 			DdlQuery: []byte(ddlQuery),
 		},
-		Client: client.(pClient.PumpsClient),
+		Client: client.(*pClient.PumpsClient),
 	}
 	txn.SetOption(kv.BinlogInfo, info)
 }

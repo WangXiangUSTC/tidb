@@ -293,7 +293,7 @@ func (s *session) doCommit(ctx context.Context) error {
 					Tp:            binlog.BinlogType_Prewrite,
 					PrewriteValue: prewriteData,
 				},
-				Client: s.sessionVars.BinlogClient.(pClient.PumpsClient),
+				Client: s.sessionVars.BinlogClient.(*pClient.PumpsClient),
 			}
 			s.txn.SetOption(kv.BinlogInfo, info)
 		}
