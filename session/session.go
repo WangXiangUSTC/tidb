@@ -281,6 +281,7 @@ func (s *session) doCommit(ctx context.Context) error {
 	if s.txn.IsReadOnly() {
 		return nil
 	}
+	log.Infof("s.sessionVars.BinlogClient is nil %v", s.sessionVars.BinlogClient == nil)
 	if s.sessionVars.BinlogClient != nil {
 		prewriteValue := binloginfo.GetPrewriteValue(s, false)
 		if prewriteValue != nil {
@@ -295,6 +296,7 @@ func (s *session) doCommit(ctx context.Context) error {
 				},
 				Client: s.sessionVars.BinlogClient.(*pClient.PumpsClient),
 			}
+			log.Info("set option")
 			s.txn.SetOption(kv.BinlogInfo, info)
 		}
 	}
@@ -1169,7 +1171,17 @@ func createSession(store kv.Storage) (*session, error) {
 	domain.BindDomain(s, dom)
 	// session implements variable.GlobalVarAccessor. Bind it to ctx.
 	s.sessionVars.GlobalVarsAccessor = s
-	s.sessionVars.BinlogClient = binloginfo.GetPumpsClient()
+	client := binloginfo.GetPumpsClient()
+	if client == nil {
+		log.Infof("set s.sessionVars.BinlogClient to nil")
+		s.sessionVars.BinlogClient = nil
+		log.Infof("s.sessionVars.BinlogClient is nil %v", s.sessionVars.BinlogClient == nil)
+	} else {
+		s.sessionVars.BinlogClient = client
+	}
+	//s.sessionVars.BinlogClient = binloginfo.GetPumpsClient()
+	log.Infof("binloginfo.GetPumpsClient() is nil %v", binloginfo.GetPumpsClient()==nil)
+	log.Infof("s.sessionVars.BinlogClient is nil %v", s.sessionVars.BinlogClient == nil)
 	s.txn.init()
 	return s, nil
 }

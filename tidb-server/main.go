@@ -172,6 +172,7 @@ func createStoreAndDomain() {
 
 func setupBinlogClient() {
 	if cfg.Binlog.Strategy == "" {
+		log.Info("no pump client")
 		return
 	}
 

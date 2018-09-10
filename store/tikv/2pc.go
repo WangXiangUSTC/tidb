@@ -700,6 +700,7 @@ func (c *twoPhaseCommitter) writeFinishBinlog(tp binlog.BinlogType, commitTS int
 }
 
 func (c *twoPhaseCommitter) shouldWriteBinlog() bool {
+	log.Infof("shouldWriteBinlog %v", c.txn.us.GetOption(kv.BinlogInfo) != nil)
 	return c.txn.us.GetOption(kv.BinlogInfo) != nil
 }
 

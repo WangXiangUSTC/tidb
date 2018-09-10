@@ -56,13 +56,18 @@ type BinlogInfo struct {
 func GetPumpsClient() *pClient.PumpsClient {
 	pumpsClientLock.RLock()
 	client := pumpsClient
+	log.Infof("GetPumpsClient client is nil %v", client == nil)
 	pumpsClientLock.RUnlock()
+	if client == nil {
+		return nil
+	}
 	return client
 }
 
 // SetPumpsClient sets the PumpsClient instance.
 func SetPumpsClient(client *pClient.PumpsClient) {
 	pumpsClientLock.Lock()
+	log.Info("SetPumpsClient")
 	pumpsClient = client
 	pumpsClientLock.Unlock()
 }
@@ -141,6 +146,7 @@ func (info *BinlogInfo) WriteBinlog(clusterID uint64) error {
 
 // SetDDLBinlog sets DDL binlog in the kv.Transaction.
 func SetDDLBinlog(client interface{}, txn kv.Transaction, jobID int64, ddlQuery string) {
+	log.Infof("SetDDLBinlog client is nil %v", client)
 	if client == nil {
 		return
 	}
@@ -153,6 +159,7 @@ func SetDDLBinlog(client interface{}, txn kv.Transaction, jobID int64, ddlQuery 
 		},
 		Client: client.(*pClient.PumpsClient),
 	}
+	log.Info("txn.SetOption(kv.BinlogInfo, info)")
 	txn.SetOption(kv.BinlogInfo, info)
 }
 
