@@ -904,6 +904,7 @@ func (t *tableCommon) Type() table.Type {
 }
 
 func shouldWriteBinlog(ctx sessionctx.Context) bool {
+	log.Infof("ctx.GetSessionVars().BinlogClient is nil %v", ctx.GetSessionVars().BinlogClient == nil)
 	if ctx.GetSessionVars().BinlogClient == nil {
 		return false
 	}

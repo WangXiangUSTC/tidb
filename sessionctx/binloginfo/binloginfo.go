@@ -27,7 +27,8 @@ import (
 	"github.com/pingcap/tidb/terror"
 	binlog "github.com/pingcap/tipb/go-binlog"
 	log "github.com/sirupsen/logrus"
-	"golang.org/x/net/context"
+	//"golang.org/x/net/context"
+	pClient "github.com/pingcap/tidb-tools/tidb-binlog/pump_client"
 	"google.golang.org/grpc"
 )
 
@@ -39,28 +40,36 @@ var binlogWriteTimeout = 15 * time.Second
 
 // pumpClient is the gRPC client to write binlog, it is opened on server start and never close,
 // shared by all sessions.
-var pumpClient binlog.PumpClient
-var pumpClientLock sync.RWMutex
+//var pumpClient binlog.PumpClient
+//var pumpClientLock sync.RWMutex
+var pumpsClient *pClient.PumpsClient
+var pumpsClientLock sync.RWMutex
 
 // BinlogInfo contains binlog data and binlog client.
 type BinlogInfo struct {
-	Data   *binlog.Binlog
-	Client binlog.PumpClient
+	Data *binlog.Binlog
+	//Client binlog.PumpClient
+	Client *pClient.PumpsClient
 }
 
-// GetPumpClient gets the pump client instance.
-func GetPumpClient() binlog.PumpClient {
-	pumpClientLock.RLock()
-	client := pumpClient
-	pumpClientLock.RUnlock()
+// GetPumpsClient gets the pump client instance.
+func GetPumpsClient() *pClient.PumpsClient {
+	pumpsClientLock.RLock()
+	client := pumpsClient
+	log.Infof("GetPumpsClient client is nil %v", client == nil)
+	pumpsClientLock.RUnlock()
+	if client == nil {
+		return nil
+	}
 	return client
 }
 
-// SetPumpClient sets the pump client instance.
-func SetPumpClient(client binlog.PumpClient) {
-	pumpClientLock.Lock()
-	pumpClient = client
-	pumpClientLock.Unlock()
+// SetPumpsClient sets the PumpsClient instance.
+func SetPumpsClient(client *pClient.PumpsClient) {
+	pumpsClientLock.Lock()
+	log.Info("SetPumpsClient")
+	pumpsClient = client
+	pumpsClientLock.Unlock()
 }
 
 // SetGRPCTimeout sets grpc timeout for writing binlog.
@@ -111,33 +120,16 @@ func (info *BinlogInfo) WriteBinlog(clusterID uint64) error {
 		return nil
 	}
 
-	commitData, err := info.Data.Marshal()
-	if err != nil {
-		return errors.Trace(err)
-	}
-	req := &binlog.WriteBinlogReq{ClusterID: clusterID, Payload: commitData}
-
-	// Retry many times because we may raise CRITICAL error here.
-	for i := 0; i < 20; i++ {
-		var resp *binlog.WriteBinlogResp
-		ctx, cancel := context.WithTimeout(context.Background(), binlogWriteTimeout)
-		resp, err = info.Client.WriteBinlog(ctx, req)
-		cancel()
-		if err == nil && resp.Errmsg != "" {
-			err = errors.New(resp.Errmsg)
-		}
-		if err == nil {
-			return nil
-		}
-		if strings.Contains(err.Error(), "received message larger than max") {
-			// This kind of error is not critical and not retryable, return directly.
-			return errors.Errorf("binlog data is too large (%s)", err.Error())
-		}
-		log.Errorf("write binlog error %v", err)
-		time.Sleep(time.Second)
+	if info.Client == nil {
+		log.Error("pump client is nil")
+		return errors.New("pump client is nil")
 	}
 
+	log.Debugf("begin write binlog, start ts: %d, type: %s", info.Data.StartTs, info.Data.Tp)
+	err := info.Client.WriteBinlog(info.Data)
+	log.Debugf("end write binlog, start ts: %d, type: %s", info.Data.StartTs, info.Data.Tp)
 	if err != nil {
+		log.Errorf("write binlog fail %v", errors.ErrorStack(err))
 		if atomic.LoadUint32(&ignoreError) == 1 {
 			log.Errorf("critical error, write binlog fail but error ignored: %s", errors.ErrorStack(err))
 			metrics.CriticalErrorCounter.Add(1)
@@ -145,13 +137,16 @@ func (info *BinlogInfo) WriteBinlog(clusterID uint64) error {
 			atomic.CompareAndSwapUint32(&skipBinlog, skip, skip+1)
 			return nil
 		}
+
+		return terror.ErrCritical.GenByArgs(err)
 	}
 
-	return terror.ErrCritical.GenByArgs(err)
+	return nil
 }
 
 // SetDDLBinlog sets DDL binlog in the kv.Transaction.
 func SetDDLBinlog(client interface{}, txn kv.Transaction, jobID int64, ddlQuery string) {
+	log.Infof("SetDDLBinlog client is nil %v", client)
 	if client == nil {
 		return
 	}
@@ -162,8 +157,9 @@ func SetDDLBinlog(client interface{}, txn kv.Transaction, jobID int64, ddlQuery 
 			DdlJobId: jobID,
 			DdlQuery: []byte(ddlQuery),
 		},
-		Client: client.(binlog.PumpClient),
+		Client: client.(*pClient.PumpsClient),
 	}
+	log.Info("txn.SetOption(kv.BinlogInfo, info)")
 	txn.SetOption(kv.BinlogInfo, info)
 }
 

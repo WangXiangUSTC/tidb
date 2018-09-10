@@ -353,8 +353,8 @@ func runTestLoadData(c *C, server *Server) {
 	defer func() {
 		err = fp.Close()
 		c.Assert(err, IsNil)
-		err = os.Remove(path)
-		c.Assert(err, IsNil)
+		//err = os.Remove(path)
+		//c.Assert(err, IsNil)
 	}()
 	_, err = fp.WriteString("\n" +
 		"xxx row1_col1	- row1_col2	1abc\n" +

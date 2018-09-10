@@ -325,7 +325,12 @@ func newDDL(ctx context.Context, etcdCli *clientv3.Client, store kv.Storage,
 		ddlJobDoneCh: make(chan struct{}, 1),
 		ownerManager: manager,
 		schemaSyncer: syncer,
-		binlogCli:    binloginfo.GetPumpClient(),
+		binlogCli:    binloginfo.GetPumpsClient(),
+	}
+	log.Infof("binloginfo.GetPumpsClient() is nil %v", binloginfo.GetPumpsClient() == nil)
+	log.Infof("ddlCtx.binlogCli is nil %v", ddlCtx.binlogCli == nil)
+	if binloginfo.GetPumpsClient() == nil {
+		ddlCtx.binlogCli = nil
 	}
 	ddlCtx.mu.hook = hook
 	ddlCtx.mu.interceptor = &BaseInterceptor{}
