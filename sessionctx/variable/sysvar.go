@@ -184,6 +184,7 @@ var defaultSysVars = []*SysVar{
 	{ScopeNone, "thread_stack", "262144"},
 	{ScopeGlobal, "relay_log_info_repository", "FILE"},
 	{ScopeGlobal | ScopeSession, SQLLogBin, "1"},
+	{ScopeSession, LogBin, "0"},
 	{ScopeGlobal, "super_read_only", "OFF"},
 	{ScopeGlobal | ScopeSession, "max_delayed_threads", "20"},
 	{ScopeNone, "protocol_version", "10"},
