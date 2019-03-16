@@ -23,6 +23,8 @@ import (
 	"sync"
 	"time"
 
+	"github.com/pingcap/tidb/sessionctx/binloginfo"
+
 	"github.com/coreos/etcd/clientv3"
 	"github.com/ngaut/pools"
 	"github.com/pingcap/errors"
@@ -38,7 +40,6 @@ import (
 	"github.com/pingcap/tidb/metrics"
 	"github.com/pingcap/tidb/owner"
 	"github.com/pingcap/tidb/sessionctx"
-	"github.com/pingcap/tidb/sessionctx/binloginfo"
 	"github.com/pingcap/tidb/sessionctx/variable"
 	"github.com/pingcap/tidb/table"
 	tidbutil "github.com/pingcap/tidb/util"
@@ -359,13 +360,18 @@ func newDDL(ctx context.Context, etcdCli *clientv3.Client, store kv.Storage,
 		ddlJobDoneCh: make(chan struct{}, 1),
 		ownerManager: manager,
 		schemaSyncer: syncer,
-		binlogCli:    binloginfo.GetPumpsClient(),
 	}
+
 	ddlCtx.mu.hook = hook
 	ddlCtx.mu.interceptor = &BaseInterceptor{}
 	d := &ddl{
 		infoHandle: infoHandle,
 		ddlCtx:     ddlCtx,
+	}
+
+	binlogCli := binloginfo.GetPumpsClientByLogBin()
+	if binlogCli != nil {
+		d.ddlCtx.binlogCli = binlogCli
 	}
 
 	d.start(ctx, ctxPool)
