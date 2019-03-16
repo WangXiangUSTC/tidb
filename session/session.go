@@ -1398,7 +1398,11 @@ func createSession(store kv.Storage) (*session, error) {
 	domain.BindDomain(s, dom)
 	// session implements variable.GlobalVarAccessor. Bind it to ctx.
 	s.sessionVars.GlobalVarsAccessor = s
-	s.sessionVars.BinlogClient = binloginfo.GetPumpsClient()
+
+	binlogCli := binloginfo.GetPumpsClientByLogBin()
+	if binlogCli != nil {
+		s.sessionVars.BinlogClient = binlogCli
+	}
 	s.txn.init()
 	return s, nil
 }
