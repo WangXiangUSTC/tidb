@@ -29,7 +29,6 @@ import (
 	"github.com/pingcap/log"
 	"github.com/pingcap/parser/mysql"
 	"github.com/pingcap/parser/terror"
-	pd "github.com/pingcap/pd/client"
 	pumpcli "github.com/pingcap/tidb-tools/tidb-binlog/pump_client"
 	"github.com/pingcap/tidb/config"
 	"github.com/pingcap/tidb/ddl"
@@ -53,6 +52,7 @@ import (
 	"github.com/pingcap/tidb/util/printer"
 	"github.com/pingcap/tidb/util/signal"
 	"github.com/pingcap/tidb/util/systimemon"
+	"github.com/pingcap/tidb/util/timeutil"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/push"
 	"github.com/struCoder/pidusage"
@@ -196,23 +196,7 @@ func setupBinlogClient() {
 		binloginfo.SetIgnoreError(true)
 	}
 
-	var (
-		client *pumpcli.PumpsClient
-		err    error
-	)
-
-	securityOption := pd.SecurityOption{
-		CAPath:   cfg.Security.ClusterSSLCA,
-		CertPath: cfg.Security.ClusterSSLCert,
-		KeyPath:  cfg.Security.ClusterSSLKey,
-	}
-
-	if len(cfg.Binlog.BinlogSocket) == 0 {
-		client, err = pumpcli.NewPumpsClient(cfg.Path, parseDuration(cfg.Binlog.WriteTimeout), securityOption)
-	} else {
-		client, err = pumpcli.NewLocalPumpsClient(cfg.Path, cfg.Binlog.BinlogSocket, parseDuration(cfg.Binlog.WriteTimeout), securityOption)
-	}
-
+	client, err := binloginfo.CreatePumpsClient()
 	terror.MustNil(err)
 
 	err = pumpcli.InitLogger(cfg.Log.ToLogConfig())
@@ -259,18 +243,6 @@ func instanceName() string {
 		return "unknown"
 	}
 	return fmt.Sprintf("%s_%d", hostname, cfg.Port)
-}
-
-// parseDuration parses lease argument string.
-func parseDuration(lease string) time.Duration {
-	dur, err := time.ParseDuration(lease)
-	if err != nil {
-		dur, err = time.ParseDuration(lease + "s")
-	}
-	if err != nil || dur < 0 {
-		log.Fatal("invalid lease duration", zap.String("lease", lease))
-	}
-	return dur
 }
 
 func hasRootPrivilege() bool {
@@ -431,10 +403,10 @@ func validateConfig() {
 }
 
 func setGlobalVars() {
-	ddlLeaseDuration := parseDuration(cfg.Lease)
+	ddlLeaseDuration := timeutil.ParseDuration(cfg.Lease)
 	session.SetSchemaLease(ddlLeaseDuration)
 	runtime.GOMAXPROCS(int(cfg.Performance.MaxProcs))
-	statsLeaseDuration := parseDuration(cfg.Performance.StatsLease)
+	statsLeaseDuration := timeutil.ParseDuration(cfg.Performance.StatsLease)
 	session.SetStatsLease(statsLeaseDuration)
 	domain.RunAutoAnalyze = cfg.Performance.RunAutoAnalyze
 	statistics.FeedbackProbability = cfg.Performance.FeedbackProbability
@@ -476,7 +448,7 @@ func setGlobalVars() {
 		}
 	}
 
-	tikv.CommitMaxBackoff = int(parseDuration(cfg.TiKVClient.CommitTimeout).Seconds() * 1000)
+	tikv.CommitMaxBackoff = int(timeutil.ParseDuration(cfg.TiKVClient.CommitTimeout).Seconds() * 1000)
 }
 
 func setupLog() {
