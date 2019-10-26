@@ -39,6 +39,11 @@ func Register(name string, driver kv.Driver) error {
 	return nil
 }
 
+// UnRegister unregisters a kv storage
+func UnRegister(name string) {
+	delete(stores, name)
+}
+
 // New creates a kv Storage with path.
 //
 // The path must be a URL format 'engine://path?params' like the one for
